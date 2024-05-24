@@ -1,36 +1,46 @@
 import pygame
 import sys
+import time
 
-# Inicializar Pygame
+#intrucciones 
+
+#el juego consiste en una representacion de lo pedido de un rompecabeza moviendo elementos que ocuoan 2 posisciones 
+#para mover un elementos se presiona primero la letra de ese elemento luego con las teclas de movimineto se puede desplazar
+#los obstaculos solo se mueven en la orientacion definida y no pueden atravezarce entre ellos 
+# el perosnaje puede moverse igual, se presiona su letra y se desplaza, puede cambiar su orientacion, se presiona control + la tecla de la nueva orientacion 
+#el personaje y los demas elementos no pueden atravezarse, por esto se deven mover en posisiones vacias para ir abriendo los espacios 
+#el temporizador indica el tiempo limite que se tiene para ir moviendo elementos y abriendo camino al personaje para llegar al punto objetivo antes que este termine
+#si se llega antes se imprime ganaste y si no se imprime perdiste y en ambos casos se cierra la consola
+
 pygame.init()
 
-# Configuración de pantalla
+# parametros de la pantalla 
 width, height = 800, 600
 screen = pygame.display.set_mode((width, height))
 pygame.display.set_caption('Juego de Tablero')
 
-# Colores
+# variablres del juego globales
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 RED = (255, 0, 0)
 BLUE = (0, 0, 255)
 
-# Tamaño del personaje y celdas del tablero
+# variables del tablero y los elementos del personaje
 cell_size = 50
 rows, cols = 4, 6
 
-# Calcular desplazamiento para centrar el tablero
+# central el tablero
 board_width = cols * cell_size
 board_height = rows * cell_size
 offset_x = (width - board_width) // 2
 offset_y = (height - board_height) // 2
 
-# Configurar el reloj para controlar la velocidad de actualización
+# variable del reloj del juego
 clock = pygame.time.Clock()
 
-# Diccionario para almacenar elementos del tablero
+# Diccionario para almacenar elementos del tablero y crearlos como objetos parametrizables
 elements = {}
-
+# funcion para crrear elementos  del juego definiendo su poccion incial letra de nombre y orientacion fija
 def create_element(letter, x, y, orientation):
     elements[letter] = {
         'x': x,
@@ -39,6 +49,8 @@ def create_element(letter, x, y, orientation):
         'letter': letter
     }
 
+#dibuajar la tabla apartir de la matriz indicada con las filas y columnas 
+#esto con el objetivo de saber la posision de cada elemento y no permitir su colision 
 def draw_board():
     screen.fill(WHITE)
     for row in range(rows):
@@ -55,8 +67,7 @@ def draw_board():
         text = font.render(chr(65 + col), True, BLACK)
         screen.blit(text, (offset_x + col * cell_size + 15, offset_y - 40))
 
-    pygame.display.flip()
-
+#dibujar elementos en pantalla 
 def draw_elements():
     for element in elements.values():
         x = element['x']
@@ -76,7 +87,7 @@ def draw_elements():
         elif orientation == 'left':
             element_rect = pygame.Rect(offset_x + x * cell_size - cell_size, offset_y + y * cell_size, cell_size * 2, cell_size)
 
-        # Dibujar borde blanco
+        # Dibujar borde blanco a los elementos de obstaculos y personaje
         border_rect = element_rect.inflate(4, 4)
         pygame.draw.rect(screen, WHITE, border_rect)
         
@@ -86,13 +97,19 @@ def draw_elements():
         font = pygame.font.Font(None, 36)
         text = font.render(letter, True, WHITE)
         screen.blit(text, (element_rect.x + 10, element_rect.y + 5))
-    pygame.display.flip()
 
-# Crear el personaje y obstáculos
-create_element('X', 3, 3, 'horizontal')  # Personaje principal
-create_element('A', 0, 0, 'horizontal')  # Obstáculo A
-create_element('B', 5, 1, 'vertical')    # Obstáculo B
-create_element('F', 4, 0, 'horizontal')  # f
+def draw_timer_and_goal(time_left):
+    font = pygame.font.Font(None, 30)
+    timer_text = font.render(f'Tiempo restante: {time_left}', True, RED)
+    screen.blit(timer_text, (width // 2 - timer_text.get_width() // 2, 20))
+    goal_text = font.render('Objetivo posición: (0,A)', True, BLACK)
+    screen.blit(goal_text, (width // 2 - goal_text.get_width() // 2, 70))
+
+# Crear los elementos y el perosnaje 
+create_element('X', 3, 3, 'horizontal')  
+create_element('A', 0, 0, 'horizontal') 
+create_element('B', 5, 1, 'vertical')    
+create_element('F', 4, 0, 'horizontal') 
 create_element('H', 3, 0, 'vertical') 
 create_element('R', 2, 0, 'vertical') 
 create_element('T', 1, 2, 'horizontal') 
@@ -101,13 +118,29 @@ create_element('P', 0, 2, 'vertical')
 # Elemento seleccionado inicialmente (por defecto el personaje 'X')
 selected_element = 'X'
 
-# Bucle principal del juego
+# deginir el tiempo inicial del cronomietro 
+start_time = time.time()
+time_limit = 30  
+
+
 while True:
+    current_time = time.time()
+    elapsed_time = current_time - start_time
+    time_left = int(time_limit - elapsed_time)
+    
+    #si el tiempo llega a cero cerrar pantallla y asumir que perdio 
+    if time_left <= 0:
+        pygame.quit()
+        print("Perdiste")
+        sys.exit()
+    
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit()
             sys.exit()
 
+        #condiciones para detectar el cambio de personaje indicando su letra para aplicar el movimiento a este
+        #teniendo en cuenta que los elementos ostaculos solo se pueden mover en la orientacion definida 
         if event.type == pygame.KEYDOWN:
             keys = pygame.key.get_pressed()
 
@@ -120,7 +153,8 @@ while True:
             element_y = element['y']
             orientation = element['orientation']
 
-            # Cambiar la orientación del personaje principal 'X' con Ctrl + flecha
+            # validar el cambio de orientacion del personaje principal que puede cambiarla con Ctrl + flecha
+            #esto solo aplica al perosonaje, al cambiar su orientacion solo se desplazara en esa orientacion hasta cambiarla otra vez 
             if selected_element == 'X' and (keys[pygame.K_LCTRL] or keys[pygame.K_RCTRL]):
                 if event.key == pygame.K_UP:
                     elements['X']['orientation'] = 'up'
@@ -131,7 +165,7 @@ while True:
                 elif event.key == pygame.K_RIGHT:
                     elements['X']['orientation'] = 'horizontal'
             else:
-                # Mover el elemento basado en la tecla presionada y la orientación
+                #mover los elementos en el tablero segun las teclas de direcion y validando su orientacion fija en los obtaculos 
                 if orientation == 'horizontal':
                     if event.key == pygame.K_LEFT and element_x > 0:
                         if not any(el['x'] == element_x - 1 and el['y'] == element_y for el in elements.values()):
@@ -168,11 +202,21 @@ while True:
                         if not any(el['x'] == element_x + 1 and el['y'] == element_y for el in elements.values()):
                             element_x += 1
 
-                # Actualizar la nueva posición del elemento seleccionado
+                # Actualizar las pocicicones de los elementos 
                 element['x'] = element_x
                 element['y'] = element_y
 
+    #si el jugado llega a la posision objetivo antes que termine el tiempo del cronometro imprimir ganaste y cerrar el juego
+    if elements['X']['x'] == 0 and elements['X']['y'] == 0 and time_left != 0:
+        pygame.quit()
+        print("Ganaste")
+        sys.exit()
+
+    # dibujando todos los elementos del ecenario la tabla y los personajes en la ventana de la consola
     draw_board()
     draw_elements()
+    #definiendo el temporizador del cronometro inicialisando el conteo
+    draw_timer_and_goal(time_left)
+    #actualizando la ventana de la consola para debujar cambio en cada frame 
+    pygame.display.flip()
     clock.tick(11)
- 
