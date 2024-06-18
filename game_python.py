@@ -21,6 +21,7 @@ cell_size = 50
 
 # Diccionario para almacenar elementos del tablero y sus propiedades
 elements = {}
+selected_element = None
 
 def read_level_from_txt(filename):
     with open(filename, 'r') as file:
@@ -60,29 +61,69 @@ def get_game_state():
     }
     return state
 
+def is_position_free(x, y, exclude_letter=None):
+    for letter, positions in elements.items():
+        if letter != exclude_letter:
+            if (x, y) in positions:
+                return False
+    return True
+
+def move_element(letter, key):
+    if letter not in elements:
+        return False
+    
+    positions = elements[letter]
+    orientation = determine_orientation(positions)
+    new_positions = []
+
+    for x, y in positions:
+        if orientation == 'vertical':
+            if key == pygame.K_UP:
+                new_pos = (x, y - 1)
+            elif key == pygame.K_DOWN:
+                new_pos = (x, y + 1)
+        elif orientation == 'horizontal':
+            if key == pygame.K_LEFT:
+                new_pos = (x - 1, y)
+            elif key == pygame.K_RIGHT:
+                new_pos = (x + 1, y)
+        else:
+            continue
+        
+        if new_pos[0] < 0 or new_pos[0] >= cols or new_pos[1] < 0 or new_pos[1] >= rows:
+            return False  # Movimiento fuera de los límites del tablero
+        if not is_position_free(*new_pos, exclude_letter=letter):
+            return False  # Posición ocupada por otro elemento
+        
+        new_positions.append(new_pos)
+
+    if len(new_positions) == len(positions):
+        elements[letter] = new_positions
+        return True
+    return False
+
 # Leer el nivel desde el archivo txt
 rows, cols = read_level_from_txt('nivel.txt')
-
-# Ejemplo de movimiento para actualizar el estado
-# Simula que el jugador 'A' se mueve hacia la derecha
-def move_player_right():
-    if 'A' in elements:
-        current_pos = elements['A'][0]
-        new_pos = (current_pos[0] + 1, current_pos[1])
-        elements['A'] = [new_pos]
 
 # Ejemplo de actualización del estado después de mover al jugador
 game_state = get_game_state()
 print("Estado actualizado del juego:", game_state)
 
-# Aquí puedes pasar game_state a tus algoritmos de búsqueda para que puedan trabajar con el estado dinámico del juego.
-
-# Bucle principal del juego (solo dibujo, no afecta al estado)
+# Bucle principal del juego
 running = True
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
+        elif event.type == pygame.KEYDOWN:
+            if event.unicode in elements:
+                selected_element = event.unicode
+                print(f"Elemento '{selected_element}' seleccionado")
+            elif selected_element:
+                if move_element(selected_element, event.key):
+                    print(f"Elemento '{selected_element}' movido con éxito")
+                else:
+                    print(f"No se puede mover el elemento '{selected_element}' en esa dirección")
 
     screen.fill(WHITE)
     for row in range(rows):
