@@ -1,0 +1,7 @@
+path_to_goal: [('UP', {'A': [(6, 2), (6, 3), (6, 4)], 'goal': (6, 1), 'obstacles': {'B': [(0, 0)], 'E': [(4, 0), (5, 0)], 'S': [(1, 4), (2, 4), (3, 4)]}, 'moved_element': 1}), ('UP', {'A': [(6, 1), (6, 2), (6, 3)], 'goal': (6, 1), 'obstacles': {'B': [(0, 0)], 'E': [(4, 0), (5, 0)], 'S': [(1, 4), (2, 4), (3, 4)]}, 'moved_element': 1})]
+cost_of_path: 2
+nodes_expanded: 3
+search_depth: 2
+max_search_depth: 2
+running_time: 0.0
+max_ram_usage: 64

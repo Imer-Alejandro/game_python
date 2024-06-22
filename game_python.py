@@ -1,10 +1,12 @@
 import pygame
 import sys
+import time
+from dfs_solver import DFSSolver
 
 pygame.init()
 
 # Parámetros de la pantalla
-width, height = 800, 600
+width, height = 1000, 600
 screen = pygame.display.set_mode((width, height))
 pygame.display.set_caption('Juego de Tablero')
 
@@ -26,7 +28,7 @@ selected_element = None
 def read_level_from_txt(filename):
     with open(filename, 'r') as file:
         lines = file.readlines()
-    
+
     rows = len(lines)
     cols = len(lines[0].strip())
     elements.clear()
@@ -55,59 +57,82 @@ def determine_orientation(element):
 
 def get_game_state():
     state = {
-        'A': elements.get('A', [])[0] if 'A' in elements else None,
-        'goal': elements.get('0', [])[0] if '0' in elements else None,
+        'A': elements["A"],
+        'goal': elements.get('0', []),
         'obstacles': {k: v[:] for k, v in elements.items() if k not in ('A', '0')}
     }
     return state
 
 def is_position_free(x, y, exclude_letter=None):
     for letter, positions in elements.items():
-        if letter != exclude_letter:
+        if letter not in (exclude_letter, 'A', '0'):
             if (x, y) in positions:
                 return False
     return True
 
-def move_element(letter, key):
+def move_element(letter, key, rows, cols):
     if letter not in elements:
         return False
-    
+
     positions = elements[letter]
     orientation = determine_orientation(positions)
     new_positions = []
 
     for x, y in positions:
         if orientation == 'vertical':
-            if key == pygame.K_UP:
+            if key == "UP":
                 new_pos = (x, y - 1)
-            elif key == pygame.K_DOWN:
+            elif key == "DOWN":
                 new_pos = (x, y + 1)
+            else:
+                continue
         elif orientation == 'horizontal':
-            if key == pygame.K_LEFT:
+            if key == "LEFT":
                 new_pos = (x - 1, y)
-            elif key == pygame.K_RIGHT:
+            elif key == "RIGHT":
                 new_pos = (x + 1, y)
-        else:
-            continue
-        
-        if new_pos[0] < 0 or new_pos[0] >= cols or new_pos[1] < 0 or new_pos[1] >= rows:
-            return False  # Movimiento fuera de los límites del tablero
-        if not is_position_free(*new_pos, exclude_letter=letter):
-            return False  # Posición ocupada por otro elemento
-        
-        new_positions.append(new_pos)
+            else:
+                continue
+
+        # Ensure new_pos is a tuple before subscripting
+        if isinstance(new_pos, tuple):
+            if new_pos[0] < 0 or new_pos[0] >= cols or new_pos[1] < 0 or new_pos[1] >= rows:
+                return False  # Movimiento fuera de los límites del tablero
+            if not is_position_free(*new_pos, exclude_letter=letter):
+                return False  # Posición ocupada por otro elemento
+
+            new_positions.append(new_pos)
 
     if len(new_positions) == len(positions):
         elements[letter] = new_positions
         return True
     return False
 
+def move_along_path(path, rows, cols):
+    for direction, position in path:
+        if direction:
+            move_element('A', direction, rows, cols)
+            print(f"Moving 'A' {direction} to {position}")
+
+
 # Leer el nivel desde el archivo txt
 rows, cols = read_level_from_txt('nivel.txt')
 
 # Ejemplo de actualización del estado después de mover al jugador
 game_state = get_game_state()
-print("Estado actualizado del juego:", game_state)
+print("Estado inicial del juego:", game_state)
+
+# Aplicar la solución al juego
+solver = DFSSolver(game_state, rows, cols)
+path, obstacles_encountered = solver.solve()
+
+if path:
+    print("Ruta encontrada:")
+    print("Path to goal:", path)
+    print("Obstacles encountered:", obstacles_encountered)
+    move_along_path(path, rows, cols)
+else:
+    print("No se encontró solución.")
 
 # Bucle principal del juego
 running = True
@@ -115,17 +140,9 @@ while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
-        elif event.type == pygame.KEYDOWN:
-            if event.unicode in elements:
-                selected_element = event.unicode
-                print(f"Elemento '{selected_element}' seleccionado")
-            elif selected_element:
-                if move_element(selected_element, event.key):
-                    print(f"Elemento '{selected_element}' movido con éxito")
-                else:
-                    print(f"No se puede mover el elemento '{selected_element}' en esa dirección")
 
     screen.fill(WHITE)
+
     for row in range(rows):
         for col in range(cols):
             rect = pygame.Rect(col * cell_size, row * cell_size, cell_size, cell_size)
@@ -137,10 +154,10 @@ while running:
         elif letter == '0':
             color = GREEN
         elif letter == 'B':
-            color = GRAY  # Color gris para obstáculos de una sola letra
+            color = GRAY
         else:
             color = BLUE
-        
+
         for pos in positions:
             x, y = pos
             orientation = determine_orientation(positions)
@@ -153,7 +170,7 @@ while running:
                 element_rect = pygame.Rect(x * cell_size, y * cell_size, cell_size * len(positions), cell_size)
             else:
                 continue
-            
+
             pygame.draw.rect(screen, color, element_rect)
             font = pygame.font.Font(None, 36)
             text = font.render(letter, True, WHITE)
