@@ -63,12 +63,46 @@ def get_game_state():
     }
     return state
 
+def get_obstacle_at_position(position):
+    x, y = position
+    for letter, positions in elements.items():
+        if letter not in ('A', '0'):
+            if (x, y) in positions:
+                return letter
+    return None
+
 def is_position_free(x, y, exclude_letter=None):
     for letter, positions in elements.items():
-        if letter not in (exclude_letter, 'A', '0'):
+        if letter != exclude_letter:
             if (x, y) in positions:
                 return False
     return True
+
+def move_obstacle_until_free(obstacle_letter, new_pos, rows, cols):
+    positions = elements[obstacle_letter]
+    orientation = determine_orientation(positions)
+
+    while not is_position_free(*new_pos, exclude_letter='A'):
+        moved = False
+        for x, y in positions:
+            if orientation == 'vertical':
+                possible_moves = [(x, y - 1), (x, y + 1)]
+            elif orientation == 'horizontal':
+                possible_moves = [(x - 1, y), (x + 1, y)]
+
+            for move in possible_moves:
+                if is_position_free(*move, exclude_letter=obstacle_letter):
+                    elements[obstacle_letter].remove((x, y))
+                    elements[obstacle_letter].append(move)
+                    moved = True
+                    break
+            if moved:
+                break
+
+        if not moved:
+            return False  # No se pudo mover el obstáculo
+
+    return True  # Obstáculo movido exitosamente
 
 def move_element(letter, key, rows, cols):
     if letter not in elements:
@@ -94,26 +128,35 @@ def move_element(letter, key, rows, cols):
             else:
                 continue
 
-        # Ensure new_pos is a tuple before subscripting
         if isinstance(new_pos, tuple):
             if new_pos[0] < 0 or new_pos[0] >= cols or new_pos[1] < 0 or new_pos[1] >= rows:
                 return False  # Movimiento fuera de los límites del tablero
+
             if not is_position_free(*new_pos, exclude_letter=letter):
-                return False  # Posición ocupada por otro elemento
+                if letter == 'A':
+                    obstacle_letter = get_obstacle_at_position(new_pos)
+                    if obstacle_letter:
+                        if not move_obstacle_until_free(obstacle_letter, new_pos, rows, cols):
+                            return False  # No se pudo mover el obstáculo
 
             new_positions.append(new_pos)
 
     if len(new_positions) == len(positions):
         elements[letter] = new_positions
         return True
+
     return False
 
 def move_along_path(path, rows, cols):
     for direction, position in path:
         if direction:
-            move_element('A', direction, rows, cols)
+            success = move_element('A', direction, rows, cols)
+            if not success:
+                print(f"Failed to move 'A' {direction} to {position}")
+                break
             print(f"Moving 'A' {direction} to {position}")
-
+            print(f"Current game state: {elements}")
+            time.sleep(0.5)  # Delay para ver el movimiento en la consola
 
 # Leer el nivel desde el archivo txt
 rows, cols = read_level_from_txt('nivel.txt')
@@ -162,7 +205,6 @@ while running:
             x, y = pos
             orientation = determine_orientation(positions)
             if len(letter) == 1:
-                # Para elementos de una sola letra, ocupan solo una casilla
                 element_rect = pygame.Rect(x * cell_size, y * cell_size, cell_size, cell_size)
             elif orientation == 'vertical':
                 element_rect = pygame.Rect(x * cell_size, y * cell_size, cell_size, cell_size * len(positions))
